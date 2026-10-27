@@ -1,0 +1,17 @@
+{
+  "name": "垃圾車來了！Trash Truck Rush Taiwan",
+  "short_name": "垃圾車來了",
+  "description": "台灣人的極限運動：分類、衝下樓、追上垃圾車把垃圾丟進去！",
+  "lang": "zh-Hant-TW",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#2d1b00",
+  "theme_color": "#f5c400",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

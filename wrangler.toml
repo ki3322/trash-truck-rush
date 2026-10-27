@@ -1,0 +1,4 @@
+# Cloudflare Pages project config (static site, no Functions).
+name = "trash-truck-rush"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-10-01"
