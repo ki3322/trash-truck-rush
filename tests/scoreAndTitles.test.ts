@@ -79,3 +79,10 @@ describe('copy', () => {
     expect(toChineseFloor(42)).toBe('42');
   });
 });
+
+describe('crowd bonus', () => {
+  it('awards points per neighbour beaten to the truck', () => {
+    const base = computeScore(outcome()).total;
+    expect(computeScore(outcome({ neighborsBeaten: 3 })).total).toBe(base + 3 * GAME_CONFIG.beatNeighborBonus);
+  });
+});

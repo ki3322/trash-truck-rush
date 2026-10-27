@@ -34,7 +34,8 @@ document.addEventListener('pointerdown', () => audio.unlock(), { passive: true }
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  backgroundColor: '#2d1b00',
+  // Transparent so the Three.js layer underneath shows through in 3D scenes.
+  transparent: true,
   width: GAME_CONFIG.width,
   height: VIEW.height,
   scale: {
@@ -51,4 +52,6 @@ if (import.meta.env.DEV) {
   const w = window as unknown as Record<string, unknown>;
   w.__game = game;
   void import('./utils/physics').then((m) => (w.__physics = m));
+  void import('./utils/physics3d').then((m) => (w.__physics3d = m));
+  void import('./systems/NeighborAI').then((m) => (w.__ai = m));
 }

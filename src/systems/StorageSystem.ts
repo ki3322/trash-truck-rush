@@ -16,6 +16,7 @@ const saveSchema = z.object({
   // Added after v1 shipped: defaults keep older saves valid.
   vibration: z.boolean().default(true),
   tutorialSeen: z.boolean().default(false),
+  view3d: z.boolean().default(true),
   stats: z.object({
     plays: z.number().int().nonnegative(),
     wins: z.number().int().nonnegative(),
@@ -35,6 +36,7 @@ export function createDefaultSave(): SaveData {
     sound: true,
     vibration: true,
     tutorialSeen: false,
+    view3d: true,
     stats: { plays: 0, wins: 0, fails: 0 },
     best: { normal: { ...EMPTY_BEST }, hard: { ...EMPTY_BEST }, hell: { ...EMPTY_BEST } },
   };
@@ -85,6 +87,10 @@ export function withSound(save: SaveData, sound: boolean): SaveData {
 
 export function withVibration(save: SaveData, vibration: boolean): SaveData {
   return { ...save, vibration };
+}
+
+export function withView3d(save: SaveData, view3d: boolean): SaveData {
+  return { ...save, view3d };
 }
 
 export function withTutorialSeen(save: SaveData): SaveData {

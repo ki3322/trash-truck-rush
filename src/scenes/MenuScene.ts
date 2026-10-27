@@ -9,9 +9,9 @@ import { track } from '../systems/AnalyticsSystem';
 import { audio } from '../systems/AudioSystem';
 import { challengeHeadline } from '../systems/ChallengeSystem';
 import { gameFlow } from '../systems/GameFlow';
-import { withSound, withVibration } from '../systems/StorageSystem';
+import { withSound, withVibration, withView3d } from '../systems/StorageSystem';
 import { haptic, hapticsSupported, setHapticsEnabled } from '../systems/Haptics';
-import { getDifficulty, getPendingChallenge, getSave, setDifficulty, setPendingChallenge, updateSave } from '../state';
+import { getDifficulty, getPendingChallenge, getRenderMode, getSave, setDifficulty, setPendingChallenge, setRenderMode, updateSave, type RenderMode } from '../state';
 import { DIFFICULTIES, type Difficulty, type RunSetup } from '../types';
 import { Button } from '../ui/Button';
 import { onKey } from '../ui/keys';
@@ -59,6 +59,7 @@ export class MenuScene extends Phaser.Scene {
     this.buildButtons();
     this.buildSoundToggle();
     this.buildVibrationToggle();
+    this.buildViewToggle();
 
     const disclaimer = this.add
       .text(W / 2, bottomY(H - 34), DISCLAIMER, {
@@ -90,6 +91,20 @@ export class MenuScene extends Phaser.Scene {
 
     new Button(this, W / 2 - 150, bottomY(1150), { width: 270, height: 80, label: '遊戲玩法', fontSize: 30, fill: COLORS.white, onClick: () => showOverlay(this, '遊戲玩法', HOW_TO_PLAY) });
     new Button(this, W / 2 + 150, bottomY(1150), { width: 270, height: 80, label: '最佳紀錄', fontSize: 30, fill: COLORS.white, onClick: () => this.showRecords() });
+  }
+
+  /** 3D third-person view vs. the classic 2D side view (for slower phones). */
+  private buildViewToggle(): void {
+    const label = (mode: RenderMode) => (mode === '3d' ? '🎥 3D 視角' : '📺 2D 經典');
+    const b = new Button(this, 90, topY(300), {
+      width: 150, height: 64, label: label(getRenderMode()), fontSize: 24, fill: COLORS.white,
+      onClick: () => {
+        const next: RenderMode = getRenderMode() === '3d' ? '2d' : '3d';
+        setRenderMode(next);
+        updateSave((s) => withView3d(s, next === '3d'));
+        b.setLabel(label(next));
+      },
+    });
   }
 
   private buildVibrationToggle(): void {

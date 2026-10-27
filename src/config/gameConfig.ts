@@ -68,6 +68,16 @@ export const GAME_CONFIG = {
   /** Slingshot aiming: degrees per pixel of vertical thumb drag on the throw button. */
   slingshotDegPerPx: 0.3,
 
+  // ── 3D (third-person) throw ─────────────────────────────
+  /** Sideways aim: degrees per px of horizontal thumb drag, and its limit. */
+  slingshotYawDegPerPx: 0.22,
+  maxYawDeg: 28,
+  /** Truck half width and the opening's half width, sideways (px; 50px = 1m). */
+  truckHalfWidth: 58,
+  openingHalfWidth: 46,
+  /** Player's sideways lane position behind the truck (px, + = right of the truck). */
+  playerLaneZ: 70,
+
   // Bounces: the bag rebounds off the truck and the ground and can still drop in.
   truckRestitution: 0.55,
   truckFriction: 0.85,
@@ -99,6 +109,9 @@ export const GAME_CONFIG = {
   noMistakeBonus: 300,
   momBagBonus: 200,
   bankShotBonus: 200,
+  beatNeighborBonus: 100,
+  /** Neighbours chasing the truck with you in the 3D throw phase. */
+  crowdSize: 4,
   failFloorPoints: 100,
   failGroundBonus: 200,
   distanceTiers: [

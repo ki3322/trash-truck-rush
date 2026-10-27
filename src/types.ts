@@ -61,4 +61,6 @@ export interface RunOutcome {
   readonly remainingSec: number;
   /** Rebounds before a successful throw went in (0 = clean shot). */
   readonly bounces: number;
+  /** Neighbours who hadn't landed a bag yet when yours went in (3D crowd). */
+  readonly neighborsBeaten: number;
 }

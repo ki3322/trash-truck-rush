@@ -2,8 +2,6 @@ import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { DIFFICULTY_CONFIG, type DifficultySettings } from '../config/difficultyConfig';
 import { tuneForSeed } from '../config/tunes';
-import { Player } from '../objects/Player';
-import { drawStairwell, stairwellHeight } from '../objects/Stairwell';
 import { track } from '../systems/AnalyticsSystem';
 import { audio } from '../systems/AudioSystem';
 import { EVENT_DEFS, pickEvents } from '../systems/EventSystem';
@@ -18,8 +16,13 @@ import { onKey } from '../ui/keys';
 import { haptic } from '../systems/Haptics';
 import { VIEW } from '../ui/view';
 import { COLORS, TEXT } from '../ui/theme';
-import { buildSegments, floorAt, positionAt, totalUnits, type Segment } from '../utils/stairPath';
+import { buildSegments, floorAt, totalUnits, type Segment } from '../utils/stairPath';
+import { getRenderMode, setRenderMode } from '../state';
+import { StairWorld3D } from '../three/StairWorld3D';
+import { getWorld3D } from '../three/World3D';
 import { StairEventPresenter } from './StairEventPresenter';
+import type { StairView } from './stairs/StairView';
+import { StairView2D } from './stairs/StairView2D';
 
 export interface ThrowSceneData {
   readonly setup: RunSetup;
@@ -58,7 +61,7 @@ export class StairScene extends Phaser.Scene {
   private dodgeUntil = 0;
   private actionLockUntil = 0;
 
-  private player!: Player;
+  private view!: StairView;
   private presenter!: StairEventPresenter;
   private timeText!: Phaser.GameObjects.Text;
   private floorText!: Phaser.GameObjects.Text;
@@ -98,22 +101,31 @@ export class StairScene extends Phaser.Scene {
   }
 
   create(): void {
-    const { width: W } = GAME_CONFIG;
-    const worldH = stairwellHeight(this.cfg.startFloor);
-    drawStairwell(this, this.cfg.startFloor, this.segments);
-
-    const start = positionAt(this.segments, 0);
-    this.player = new Player(this, start.x, start.y, 0.9).setDepth(20).setPose('idle').setFace('panic');
-    this.presenter = new StairEventPresenter(this, this.player, this.segments, this.schedule, this.cfg.eventWindowMs);
-
-    const cam = this.cameras.main;
-    cam.setBounds(0, 0, W, worldH);
-    cam.startFollow(this.player, true, 0.12, 0.12, 0, -140);
+    this.view = this.createView();
+    this.events.once('shutdown', () => this.view.destroy());
+    this.presenter = new StairEventPresenter(this);
 
     this.buildHud();
     this.bindKeys();
     this.startRunning();
     audio.startTruckMusic(tuneForSeed(this.setup.seed), 1);
+  }
+
+  private createView(): StairView {
+    if (getRenderMode() === '3d') {
+      const world = getWorld3D();
+      if (world) {
+        return new StairWorld3D(world, this.game.canvas, this.cfg.startFloor, this.segments, this.schedule, this.cfg.eventWindowMs);
+      }
+      setRenderMode('2d'); // WebGL unavailable: remember and fall back.
+    }
+    return new StairView2D(this, this.cfg.startFloor, this.segments, this.schedule, this.cfg.eventWindowMs);
+  }
+
+  /** Pop-up text just above the runner (works for both views). */
+  private popAtRunner(message: string, color: string, size: number, dy = 0): void {
+    const s = this.view.runnerScreen();
+    popText(this, Phaser.Math.Clamp(s.x, 120, GAME_CONFIG.width - 120), s.y + dy, message, color, size);
   }
 
   // ── HUD & input ─────────────────────────────────────────
@@ -171,7 +183,7 @@ export class StairScene extends Phaser.Scene {
     this.tweens.add({ targets: label, scale: 1, duration: 220, ease: 'Back.easeOut' });
     this.tweens.add({ targets: [label, hint], alpha: 0, delay: 1100, duration: 300 });
     this.controlling = true;
-    this.player.setPose('run');
+    this.view.runner.setPose('run');
   }
 
   private onFoot(foot: Foot): void {
@@ -189,7 +201,7 @@ export class StairScene extends Phaser.Scene {
     if (outcome === 'stumble') {
       audio.play('stumble');
       haptic('stumble');
-      popText(this, this.player.x, this.player.y - 150, '踉蹌！左右要交替！', '#ff6b6b', 30);
+      this.popAtRunner('踉蹌！左右要交替！', '#ff6b6b', 30);
     }
   }
 
@@ -212,6 +224,7 @@ export class StairScene extends Phaser.Scene {
     audio.play(sched.type === 'slipper' ? 'slipper' : 'event');
     haptic('wrong');
     this.presenter.show(sched.type);
+    this.view.eventStart(sched.type);
   }
 
   private resolveEvent(success: boolean): void {
@@ -221,7 +234,7 @@ export class StairScene extends Phaser.Scene {
     this.nextEvent += 1;
     const def = EVENT_DEFS[a.sched.type];
     const msg = success ? def.successText : def.failText;
-    popText(this, this.player.x, this.player.y - 160, msg, success ? '#7CFC00' : '#ff6b6b', 32);
+    this.popAtRunner(msg, success ? '#7CFC00' : '#ff6b6b', 32, -10);
     if (success) {
       this.succeededEvents = [...this.succeededEvents, a.sched.type];
       audio.play('catch');
@@ -239,7 +252,8 @@ export class StairScene extends Phaser.Scene {
       if (def.slowMs > 0) this.runner = applySlow(this.runner, this.now, def.slowMs);
       this.cameras.main.shake(200, 0.008);
     }
-    this.presenter.resolve(a.sched.type, success, def.slowMs);
+    this.presenter.resolve();
+    this.view.eventEnd(a.sched.type, success, def.slowMs);
   }
 
   private updateEvents(delta: number): void {
@@ -264,8 +278,8 @@ export class StairScene extends Phaser.Scene {
   // ── Main loop ───────────────────────────────────────────
   update(_time: number, delta: number): void {
     this.now += delta;
-    this.player.tick(delta);
     this.presenter.tick(delta);
+    this.view.tick(delta);
     if (!this.controlling || this.finished) return;
 
     this.clock = tickClock(this.clock, delta);
@@ -277,8 +291,7 @@ export class StairScene extends Phaser.Scene {
       this.finishStairs();
       return;
     }
-    const pos = positionAt(this.segments, this.displayP);
-    this.player.setPosition(pos.x, pos.y).setFacing(pos.dir);
+    this.view.place(this.displayP);
     this.updatePose();
     this.updateEvents(delta);
 
@@ -295,11 +308,12 @@ export class StairScene extends Phaser.Scene {
   private updatePose(): void {
     const stunned = this.now < this.runner.stunnedUntil;
     const ratio = speedRatio(this.runner, this.now);
-    if (this.now < this.dodgeUntil) this.player.setPose('dodge').setFace('focus');
-    else if (stunned) this.player.setPose('stumble');
-    else if (this.active?.sched.type === 'bagTear' && ratio === 0) this.player.setPose('still');
-    else if (ratio > 0) this.player.setPose('run').setFace('panic').setRunSpeed(ratio);
-    else this.player.setPose('idle').setFace('panic');
+    const r = this.view.runner;
+    if (this.now < this.dodgeUntil) r.setPose('dodge').setFace('focus');
+    else if (stunned) r.setPose('stumble');
+    else if (this.active?.sched.type === 'bagTear' && ratio === 0) r.setPose('still');
+    else if (ratio > 0) r.setPose('run').setFace('panic').setRunSpeed(ratio);
+    else r.setPose('idle').setFace('panic');
   }
 
   private stampFloor(floor: number): void {
@@ -353,9 +367,9 @@ export class StairScene extends Phaser.Scene {
     this.clock = pauseClock(this.clock);
     const stair = this.stairResult(true);
     track('reach_ground_floor', { difficulty: this.setup.difficulty, stair_time: stair.stairTimeSec });
-    popText(this, this.player.x + 80, this.player.y - 170, '衝出鐵門！', '#ffe066', 44);
-    this.player.setPose('run').setRunSpeed(1);
-    this.tweens.add({ targets: this.player, x: -60, duration: 450 });
+    this.popAtRunner('衝出鐵門！', '#ffe066', 44, -20);
+    this.view.runner.setPose('run').setRunSpeed(1);
+    this.view.exitDoor();
     this.time.delayedCall(550, () => {
       if (!gameFlow.go('throw')) return;
       const data: ThrowSceneData = { setup: this.setup, sort: this.sort, stair };
@@ -369,7 +383,7 @@ export class StairScene extends Phaser.Scene {
     this.presenter.clear();
     audio.stopMusic();
     audio.play('fail');
-    this.player.setPose('cry');
+    this.view.runner.setPose('cry');
     const outcome: RunOutcome = {
       setup: this.setup,
       success: false,
@@ -382,6 +396,7 @@ export class StairScene extends Phaser.Scene {
       attemptsUsed: 0,
       remainingSec: 0,
       bounces: 0,
+      neighborsBeaten: 0,
     };
     const { width: W, height: H } = VIEW;
     this.add

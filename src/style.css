@@ -60,6 +60,9 @@ body {
 
 #game canvas {
   touch-action: none;
+  /* Phaser (HUD + input) sits above the 3D layer. */
+  position: relative;
+  z-index: 1;
   image-rendering: auto;
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
 }

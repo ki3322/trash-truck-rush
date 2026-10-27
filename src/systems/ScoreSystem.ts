@@ -31,6 +31,7 @@ export function computeScore(o: RunOutcome): ScoreBreakdown {
     if (o.perfect) lines.push({ label: '完美命中', points: c.perfectHitBonus });
     if (o.attemptsUsed === 1) lines.push({ label: '一次命中', points: c.firstTryBonus });
     if (o.bounces > 0) lines.push({ label: `反彈進車（${o.bounces} 次）`, points: c.bankShotBonus });
+    if (o.neighborsBeaten > 0) lines.push({ label: `搶先 ${o.neighborsBeaten} 位鄰居`, points: o.neighborsBeaten * c.beatNeighborBonus });
     const secs = Math.floor(Math.max(0, o.remainingSec));
     if (secs > 0) lines.push({ label: `剩餘 ${secs} 秒`, points: secs * c.timeBonusPerSec });
   } else {

@@ -9,6 +9,19 @@ let save: SaveData = storage.load();
 let difficulty: Difficulty = 'hard';
 let pendingChallenge: Challenge | null = null;
 
+export type RenderMode = '3d' | '2d';
+/** `?view=2d` forces the classic side view (also used as a fallback when WebGL is missing). */
+const forced2d = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === '2d';
+let renderMode: RenderMode = forced2d || !save.view3d ? '2d' : '3d';
+
+export function getRenderMode(): RenderMode {
+  return renderMode;
+}
+
+export function setRenderMode(mode: RenderMode): void {
+  renderMode = mode;
+}
+
 audio.setEnabled(save.sound);
 setHapticsEnabled(save.vibration);
 

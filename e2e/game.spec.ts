@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-type W = { __game: any; __physics: any };
+type W = { __game: any; __physics: any; __physics3d: any; __ai: any };
 
 const activeScene = (page: Page) =>
   page.evaluate(() => (window as unknown as W).__game.scene.getScenes(true).map((s: any) => s.scene.key).join(','));
@@ -10,8 +10,9 @@ async function waitForScene(page: Page, key: string, timeout = 15_000) {
   await page.waitForFunction((k) => (window as unknown as W).__game?.scene.getScene(k)?.sys.isActive(), key, { timeout });
 }
 
-async function startRun(page: Page, difficulty: 'normal' | 'hard' | 'hell') {
-  await page.goto('/');
+/** Rule tests run in the 2D view: same rules, but fast in headless (software) WebGL. */
+async function startRun(page: Page, difficulty: 'normal' | 'hard' | 'hell', view: '2d' | '3d' = '2d') {
+  await page.goto(view === '2d' ? '/?view=2d' : '/');
   await waitForScene(page, 'Menu');
   await page.evaluate((d) => {
     const m = (window as unknown as W).__game.scene.getScene('Menu');
@@ -235,7 +236,7 @@ test('a bank shot off the truck still goes in and earns the bounce bonus', async
 });
 
 test('sorting mistakes cost time and show up in the result', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?view=2d');
   await waitForScene(page, 'Menu');
   await page.evaluate(() => (window as unknown as W).__game.scene.getScene('Menu').startGame());
   await waitForScene(page, 'Intro');
@@ -262,7 +263,7 @@ test('holding 追 chases the truck, drains stamina and stays behind the truck', 
   await page.waitForTimeout(1500);
   const mid = await page.evaluate(() => {
     const s = (window as unknown as W).__game.scene.getScene('Throw');
-    return { x: s.chase.x, stamina: s.chase.stamina, vx: s.chase.vx, truckRear: s.truck.x };
+    return { x: s.chase.x, stamina: s.chase.stamina, vx: s.chase.vx, truckRear: s.truckRear };
   });
   await page.keyboard.up('KeyD');
   expect(mid.x).toBeGreaterThan(x0 + 60);
@@ -317,4 +318,67 @@ test('two thumbs: hold 追 with the left, slingshot-aim and throw with the right
   const after = await page.evaluate(() => (window as unknown as W).__game.scene.getScene('Throw').attempts);
   expect(after).toBe(1);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [tp(1, rx, ry)] });
+});
+
+test('3D: both phases render in third person, and a ballistic throw from the side lane goes in', async ({ page }) => {
+  test.setTimeout(150_000);
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await startRun(page, 'normal', '3d');
+  const stair3d = await page.evaluate(() => {
+    const s = (window as unknown as W).__game.scene.getScene('Stair');
+    const c = document.getElementById('world3d') as HTMLCanvasElement | null;
+    return { is3D: s.view.is3D, canvas: !!c && c.style.display !== 'none' && c.width > 0 };
+  });
+  expect(stair3d).toEqual({ is3D: true, canvas: true });
+  // Skip the run itself (software WebGL is slow headless): jump the runner to the bottom.
+  await page.evaluate(() => {
+    const s = (window as unknown as W).__game.scene.getScene('Stair');
+    s.runner = { ...s.runner, progress: s.total };
+    s.displayP = s.total;
+  });
+  await waitForScene(page, 'Throw', 30_000);
+  await page.waitForFunction(() => !!(window as unknown as W).__ai);
+  const throw3d = await page.evaluate(() => {
+    const s = (window as unknown as W).__game.scene.getScene('Throw');
+    return { is3D: s.view.is3D, lane: s.laneZ, crowd: s.neighbors.length };
+  });
+  expect(throw3d.is3D).toBe(true);
+  expect(throw3d.lane).not.toBe(0);
+  expect(throw3d.crowd).toBeGreaterThan(0);
+  // Wait until the truck is cruising, then aim with the same ballistics the neighbours use.
+  await page.waitForFunction(() => (window as unknown as W).__game.scene.getScene('Throw').truckTimeMs > 3200, null, { timeout: 60_000 });
+  const thrown = await page.evaluate(() => {
+    const w = window as unknown as W;
+    const s = w.__game.scene.getScene('Throw');
+    const speed = w.__physics.truckSpeedAt(s.truckTimeMs, s.cfg.truckSpeed);
+    // Lob it: flat throws can clip the near rim (which correctly bounces them off).
+    for (const pitch of [54, 50, 58, 46, 62]) {
+      const v = w.__ai.aimAt(s.releaseX(), s.laneZ, { rearX: s.truckRear, speed, openingWidth: s.cfg.openingWidth }, pitch);
+      if (!v) continue;
+      const vx = v.vx - s.chase.vx;
+      const power = Math.hypot(vx, v.vy, v.vz);
+      if (power < 320 || power > 900) continue;
+      s.angleDeg = (Math.asin(-v.vy / power) * 180) / Math.PI;
+      s.yawDeg = (Math.atan2(v.vz, vx) * 180) / Math.PI;
+      s.throwBag(power);
+      return { pitch, yaw: s.yawDeg };
+    }
+    return null;
+  });
+  expect(thrown).not.toBeNull();
+  expect(Math.abs(thrown!.yaw)).toBeGreaterThan(1); // had to aim sideways from the side lane
+  await waitForScene(page, 'Result', 60_000);
+  const o = await page.evaluate(() => (window as unknown as W).__game.scene.getScene('Result').outcome);
+  expect(o.success).toBe(true);
+  expect(o.neighborsBeaten).toBeGreaterThanOrEqual(0);
+  // The 3D layer is hidden again outside 3D scenes.
+  const hidden = await page.evaluate(() => (document.getElementById('world3d') as HTMLCanvasElement).style.display);
+  expect(hidden).toBe('none');
+  expect(errors).toEqual([]);
+});
+
+test('?view=2d forces the classic side view', async ({ page }) => {
+  await startRun(page, 'normal', '2d');
+  expect(await page.evaluate(() => (window as unknown as W).__game.scene.getScene('Stair').view.is3D)).toBe(false);
 });
