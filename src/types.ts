@@ -36,14 +36,6 @@ export interface StairResult {
   readonly remainingMs: number;
 }
 
-export type TrashCategory = 'general' | 'recycle';
-
-export interface SortResult {
-  readonly items: number;
-  readonly mistakes: number;
-  readonly timeSec: number;
-}
-
 export type FailReason = 'stairs_timeout' | 'throw_timeout' | 'truck_left' | 'out_of_bags';
 
 export type MissKind = 'ground' | 'roof' | 'body' | 'rim' | 'overshoot';
@@ -53,7 +45,6 @@ export interface RunOutcome {
   readonly success: boolean;
   readonly failReason: FailReason | null;
   readonly lastMiss: MissKind | null;
-  readonly sort: SortResult;
   readonly stair: StairResult;
   readonly throwDistanceM: number | null;
   readonly perfect: boolean;

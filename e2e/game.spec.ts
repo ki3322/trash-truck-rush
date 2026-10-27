@@ -21,23 +21,7 @@ async function startRun(page: Page, difficulty: 'normal' | 'hard' | 'hell') {
   await waitForScene(page, 'Intro');
   await page.waitForTimeout(500); // keys are armed shortly after a scene starts
   await page.keyboard.press('Space'); // skip intro
-  await sortAll(page, false);
   await page.waitForFunction(() => (window as unknown as W).__game.scene.getScene('Stair').controlling, null, { timeout: 10_000 });
-}
-
-/** Sort every item (correctly, or always into the bag when `sloppy`). */
-async function sortAll(page: Page, sloppy: boolean) {
-  await page.waitForFunction(() => (window as unknown as W).__game.scene.getScene('Sort').controlling, null, { timeout: 10_000 });
-  for (let i = 0; i < 20; i++) {
-    const cat = await page.evaluate(() => {
-      const s = (window as unknown as W).__game.scene.getScene('Sort');
-      if (!s.sys.isActive() || s.finished) return null;
-      return s.busy ? 'busy' : s.items[s.index].category;
-    });
-    if (cat === null) return;
-    if (cat !== 'busy') await page.keyboard.press(sloppy || cat === 'general' ? 'KeyA' : 'KeyD');
-    await page.waitForTimeout(260);
-  }
 }
 
 /** Alternate A/D and react to events until the stairs are done. */
@@ -161,7 +145,6 @@ test('running out of time on the stairs fails cleanly and retry restarts', async
   await waitForScene(page, 'Intro');
   await page.waitForTimeout(500);
   await page.keyboard.press('Space');
-  await sortAll(page, false);
   await page.waitForFunction(() => {
     const s = (window as unknown as W).__game.scene.getScene('Stair');
     return s.sys.isActive() && s.runner.progress === 0 && s.failedEvents.length === 0;
@@ -232,23 +215,6 @@ test('a bank shot off the truck still goes in and earns the bounce bonus', async
   const o = await page.evaluate(() => (window as unknown as W).__game.scene.getScene('Result').outcome);
   expect(o.success).toBe(true);
   expect(o.bounces).toBeGreaterThan(0);
-});
-
-test('sorting mistakes cost time and show up in the result', async ({ page }) => {
-  await page.goto('/');
-  await waitForScene(page, 'Menu');
-  await page.evaluate(() => (window as unknown as W).__game.scene.getScene('Menu').startGame());
-  await waitForScene(page, 'Intro');
-  await page.waitForTimeout(500);
-  await page.keyboard.press('Space');
-  await sortAll(page, true); // everything into the bag → every recyclable is wrong
-  await waitForScene(page, 'Stair');
-  const st = await page.evaluate(() => {
-    const s = (window as unknown as W).__game.scene.getScene('Stair');
-    return { mistakes: s.sort.mistakes, penalty: s.clock.penaltyMs };
-  });
-  expect(st.mistakes).toBeGreaterThanOrEqual(2);
-  expect(st.penalty).toBe(st.mistakes * 1500);
 });
 
 test('holding 追 chases the truck, drains stamina and stays behind the truck', async ({ page }) => {

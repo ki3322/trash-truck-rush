@@ -17,7 +17,7 @@ describe('computeScore', () => {
   it('sums every success bonus', () => {
     const s = computeScore(outcome({ throwDistanceM: 8, perfect: true, attemptsUsed: 1, remainingSec: 12.7 }, { succeededEvents: ['momBag'] }));
     const c = GAME_CONFIG;
-    expect(s.total).toBe(1000 + c.perfectHitBonus + c.firstTryBonus + 12 * c.timeBonusPerSec + c.perfectSortBonus + c.noMistakeBonus + c.momBagBonus);
+    expect(s.total).toBe(1000 + c.perfectHitBonus + c.firstTryBonus + 12 * c.timeBonusPerSec + c.noMistakeBonus + c.momBagBonus);
   });
   it('drops flawless bonus after a stumble or failed event', () => {
     expect(isFlawlessDescent(outcome({}, { stumbles: 1 }))).toBe(false);
@@ -26,11 +26,9 @@ describe('computeScore', () => {
   });
   it('gives partial credit on failure', () => {
     const f = computeScore(outcome({ success: false, failReason: 'stairs_timeout', throwDistanceM: null }, { reachedGround: false, floorReached: 3, stumbles: 2 }));
-    expect(f.total).toBe(2 * GAME_CONFIG.failFloorPoints + GAME_CONFIG.perfectSortBonus);
+    expect(f.total).toBe(2 * GAME_CONFIG.failFloorPoints);
     const g = computeScore(outcome({ success: false, failReason: 'out_of_bags', throwDistanceM: null }, { stumbles: 1 }));
-    expect(g.total).toBe(4 * GAME_CONFIG.failFloorPoints + GAME_CONFIG.failGroundBonus + GAME_CONFIG.perfectSortBonus);
-    const sloppy = computeScore(outcome({ success: false, failReason: 'out_of_bags', throwDistanceM: null, sort: { items: 6, mistakes: 2, timeSec: 7 } }, { stumbles: 1 }));
-    expect(sloppy.total).toBe(4 * GAME_CONFIG.failFloorPoints + GAME_CONFIG.failGroundBonus);
+    expect(g.total).toBe(4 * GAME_CONFIG.failFloorPoints + GAME_CONFIG.failGroundBonus);
   });
 });
 

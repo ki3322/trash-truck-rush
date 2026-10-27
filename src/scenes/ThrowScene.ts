@@ -13,7 +13,7 @@ import { createClock, isExpired, pauseClock, remainingMs, startClock, tickClock,
 import { gameFlow } from '../systems/GameFlow';
 import { distanceBasePoints } from '../systems/ScoreSystem';
 import { createChase, stepChase, type ChaseState } from '../systems/ChaseModel';
-import type { FailReason, MissKind, RunOutcome, RunSetup, SortResult, StairResult } from '../types';
+import type { FailReason, MissKind, RunOutcome, RunSetup, StairResult } from '../types';
 import { Button } from '../ui/Button';
 import { popText } from '../ui/Overlay';
 import { onKey } from '../ui/keys';
@@ -39,7 +39,6 @@ const PREVIEW_STEPS = 72;
 
 export class ThrowScene extends Phaser.Scene {
   private setup!: RunSetup;
-  private sort!: SortResult;
   private stair!: StairResult;
   private chase: ChaseState = createChase(C.playerX);
   private wantRun = false;
@@ -93,7 +92,6 @@ export class ThrowScene extends Phaser.Scene {
 
   init(data: ThrowSceneData): void {
     this.setup = data.setup;
-    this.sort = data.sort;
     this.stair = data.stair;
     this.chase = createChase(C.playerX);
     this.wantRun = false;
@@ -498,7 +496,6 @@ export class ThrowScene extends Phaser.Scene {
     audio.stopMusic();
     const outcome: RunOutcome = {
       setup: this.setup,
-      sort: this.sort,
       stair: this.stair,
       lastMiss: this.lastMiss,
       attemptsUsed: this.attempts,

@@ -7,7 +7,6 @@ export interface DifficultySettings {
   readonly startFloor: number;
   readonly durationSec: number;
   readonly eventCount: number;
-  readonly sortItems: number;
   readonly eventWindowMs: number;
   readonly truckSpeed: number;
   readonly openingWidth: number;
@@ -25,9 +24,8 @@ export const DIFFICULTY_CONFIG: Readonly<Record<Difficulty, DifficultySettings>>
     code: 'n',
     description: '從 3 樓出發・垃圾車慢・投入口大',
     startFloor: 3,
-    durationSec: 52,
+    durationSec: 45,
     eventCount: 1,
-    sortItems: 5,
     eventWindowMs: 2000,
     truckSpeed: 45,
     openingWidth: 120,
@@ -42,9 +40,8 @@ export const DIFFICULTY_CONFIG: Readonly<Record<Difficulty, DifficultySettings>>
     code: 'h',
     description: '從 5 樓出發・垃圾車快・投入口中',
     startFloor: 5,
-    durationSec: 50,
+    durationSec: 42,
     eventCount: 2,
-    sortItems: 6,
     eventWindowMs: 1600,
     truckSpeed: 65,
     openingWidth: 92,
@@ -59,9 +56,8 @@ export const DIFFICULTY_CONFIG: Readonly<Record<Difficulty, DifficultySettings>>
     code: 'x',
     description: '從 6 樓出發・垃圾車飆・投入口小',
     startFloor: 6,
-    durationSec: 48,
+    durationSec: 40,
     eventCount: 3,
-    sortItems: 8,
     eventWindowMs: 1300,
     truckSpeed: 85,
     openingWidth: 70,

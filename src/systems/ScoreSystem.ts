@@ -39,7 +39,6 @@ export function computeScore(o: RunOutcome): ScoreBreakdown {
     if (floors > 0) lines.push({ label: `衝下 ${floors} 層樓`, points: floors * c.failFloorPoints });
     if (o.stair.reachedGround) lines.push({ label: '抵達巷口', points: c.failGroundBonus });
   }
-  if (o.sort.mistakes === 0) lines.push({ label: '垃圾分類滿分', points: c.perfectSortBonus });
   if (isFlawlessDescent(o)) lines.push({ label: '無失誤下樓', points: c.noMistakeBonus });
   if (momCaught) lines.push({ label: '接住媽媽那袋', points: c.momBagBonus });
 

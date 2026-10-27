@@ -30,7 +30,7 @@ describe('game clock', () => {
 describe('game flow', () => {
   it('allows the main loop', () => {
     const f = new GameFlow();
-    for (const s of ['menu', 'intro', 'sort', 'stairs', 'throw', 'result', 'intro', 'sort', 'stairs', 'result', 'menu'] as const) {
+    for (const s of ['menu', 'intro', 'stairs', 'throw', 'result', 'intro', 'stairs', 'result', 'menu'] as const) {
       expect(f.go(s)).toBe(true);
     }
     expect(f.state).toBe('menu');

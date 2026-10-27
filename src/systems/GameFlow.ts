@@ -1,11 +1,10 @@
 /** Guards scene transitions so a stray callback can't jump the game into a bad state. */
-export type FlowState = 'boot' | 'menu' | 'intro' | 'sort' | 'stairs' | 'throw' | 'result';
+export type FlowState = 'boot' | 'menu' | 'intro' | 'stairs' | 'throw' | 'result';
 
 const ALLOWED: Readonly<Record<FlowState, readonly FlowState[]>> = {
   boot: ['menu'],
   menu: ['intro'],
-  intro: ['sort', 'menu'],
-  sort: ['stairs', 'menu'],
+  intro: ['stairs', 'menu'],
   stairs: ['throw', 'result', 'menu'],
   throw: ['result', 'menu'],
   result: ['intro', 'menu'],

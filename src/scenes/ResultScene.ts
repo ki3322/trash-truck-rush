@@ -99,7 +99,6 @@ export class ResultScene extends Phaser.Scene {
 
     const start = DIFFICULTY_CONFIG[o.setup.difficulty].startFloor;
     const rows: [string, string][] = [
-      ['垃圾分類', `${o.sort.items - o.sort.mistakes}/${o.sort.items} 正確${o.sort.mistakes === 0 ? ' ✅' : ''}`],
       ['完成樓層', o.stair.reachedGround ? `${start}F → 1F ✅` : `${start}F → ${o.stair.floorReached}F`],
       ['下樓時間', o.stair.reachedGround ? formatSeconds(o.stair.stairTimeSec) : '沒下到一樓'],
       ['投擲距離', o.success && o.throwDistanceM !== null ? `${o.throwDistanceM.toFixed(1)} 公尺` : '—'],

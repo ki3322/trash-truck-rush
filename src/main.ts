@@ -5,7 +5,6 @@ import { VIEW } from './ui/view';
 import { BootScene } from './scenes/BootScene';
 import { MenuScene } from './scenes/MenuScene';
 import { IntroScene } from './scenes/IntroScene';
-import { SortScene } from './scenes/SortScene';
 import { StairScene } from './scenes/StairScene';
 import { ThrowScene } from './scenes/ThrowScene';
 import { ResultScene } from './scenes/ResultScene';
@@ -43,7 +42,7 @@ const game = new Phaser.Game({
   },
   input: { activePointers: 3 },
   render: { antialias: true, roundPixels: false },
-  scene: [BootScene, MenuScene, IntroScene, SortScene, StairScene, ThrowScene, ResultScene],
+  scene: [BootScene, MenuScene, IntroScene, StairScene, ThrowScene, ResultScene],
 });
 
 // Expose for automated playtesting in development only.

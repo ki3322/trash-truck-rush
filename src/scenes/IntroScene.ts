@@ -124,8 +124,8 @@ export class IntroScene extends Phaser.Scene {
     if (this.leaving) return;
     this.leaving = true;
     audio.unlock();
-    if (!gameFlow.go('sort')) return;
-    this.scene.start('Sort', this.setup);
+    if (!gameFlow.go('stairs')) return;
+    this.scene.start('Stair', this.setup);
   }
 
   update(_t: number, delta: number): void {

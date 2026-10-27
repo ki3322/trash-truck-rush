@@ -10,8 +10,7 @@ import { EVENT_DEFS, pickEvents } from '../systems/EventSystem';
 import { createClock, isExpired, pauseClock, penalize, remainingMs, startClock, tickClock, type GameClock } from '../systems/GameClock';
 import { gameFlow } from '../systems/GameFlow';
 import { INITIAL_RUNNER, applySlow, applyStun, speedRatio, tap, type Foot, type RunnerState } from '../systems/RunnerModel';
-import type { EventType, RunOutcome, RunSetup, ScheduledEvent, SortResult, StairResult } from '../types';
-import type { StairSceneData } from './SortScene';
+import type { EventType, RunOutcome, RunSetup, ScheduledEvent, StairResult } from '../types';
 import { Button } from '../ui/Button';
 import { popText } from '../ui/Overlay';
 import { onKey } from '../ui/keys';
@@ -23,7 +22,6 @@ import { StairEventPresenter } from './StairEventPresenter';
 
 export interface ThrowSceneData {
   readonly setup: RunSetup;
-  readonly sort: SortResult;
   readonly stair: StairResult;
 }
 
@@ -38,7 +36,6 @@ interface ActiveEvent {
 
 export class StairScene extends Phaser.Scene {
   private setup!: RunSetup;
-  private sort!: SortResult;
   private cfg!: DifficultySettings;
   private segments: Segment[] = [];
   private total = 0;
@@ -72,10 +69,8 @@ export class StairScene extends Phaser.Scene {
     super('Stair');
   }
 
-  init(data: StairSceneData): void {
-    const { setup } = data;
+  init(setup: RunSetup): void {
     this.setup = setup;
-    this.sort = data.sort;
     this.cfg = DIFFICULTY_CONFIG[setup.difficulty];
     this.segments = buildSegments(this.cfg.startFloor);
     this.total = totalUnits(this.cfg.startFloor);
@@ -83,8 +78,8 @@ export class StairScene extends Phaser.Scene {
     this.nextEvent = 0;
     this.active = null;
     this.runner = INITIAL_RUNNER;
-    // The clock started in the sorting phase and keeps running (the truck doesn't wait).
-    this.clock = startClock(data.clock);
+    // Not running yet: the clock starts when the countdown hands over control.
+    this.clock = createClock(this.cfg.durationSec * 1000);
     this.now = 0;
     this.displayP = 0;
     this.controlling = false;
@@ -112,7 +107,7 @@ export class StairScene extends Phaser.Scene {
 
     this.buildHud();
     this.bindKeys();
-    this.startRunning();
+    this.runCountdown();
     audio.startTruckMusic(tuneForSeed(this.setup.seed), 1);
   }
 
@@ -154,24 +149,34 @@ export class StairScene extends Phaser.Scene {
     onKey(this, 'keydown-UP', () => this.onAction());
   }
 
-  /** Control starts at once — the countdown already happened before sorting. */
-  private startRunning(): void {
+  /** 3‑2‑1 then 開始！ — the clock only starts when the player gets control. */
+  private runCountdown(): void {
     const { width: W, height: H } = VIEW;
     const label = this.add
-      .text(W / 2, H / 2 - 80, '衝下樓！', { ...TEXT.title, fontSize: '120px', color: '#e85d04' })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(300)
-      .setScale(1.5);
-    const hint = this.add
-      .text(W / 2, H / 2 + 50, '左右交替點擊！\n同一腳連按會踉蹌', { ...TEXT.h2, fontSize: '34px', align: 'center' })
+      .text(W / 2, H / 2 - 80, '', { ...TEXT.title, fontSize: '170px', color: '#e85d04' })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(300);
-    this.tweens.add({ targets: label, scale: 1, duration: 220, ease: 'Back.easeOut' });
-    this.tweens.add({ targets: [label, hint], alpha: 0, delay: 1100, duration: 300 });
-    this.controlling = true;
-    this.player.setPose('run');
+    const hint = this.add
+      .text(W / 2, H / 2 + 60, '左右交替點擊衝下樓！\n同一腳連按會踉蹌', { ...TEXT.h2, fontSize: '34px', align: 'center' })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(300);
+    const steps = ['3', '2', '1', '開始！'];
+    steps.forEach((s, i) => {
+      this.time.delayedCall(i * 600, () => {
+        label.setText(s).setScale(1.6).setAlpha(1);
+        this.tweens.add({ targets: label, scale: 1, duration: 250, ease: 'Back.easeOut' });
+        audio.play(i === steps.length - 1 ? 'go' : 'count');
+        if (i === steps.length - 1) {
+          haptic('go');
+          this.controlling = true;
+          this.clock = startClock(this.clock);
+          this.player.setPose('run');
+          this.tweens.add({ targets: [label, hint], alpha: 0, delay: 350, duration: 300 });
+        }
+      });
+    });
   }
 
   private onFoot(foot: Foot): void {
@@ -358,7 +363,7 @@ export class StairScene extends Phaser.Scene {
     this.tweens.add({ targets: this.player, x: -60, duration: 450 });
     this.time.delayedCall(550, () => {
       if (!gameFlow.go('throw')) return;
-      const data: ThrowSceneData = { setup: this.setup, sort: this.sort, stair };
+      const data: ThrowSceneData = { setup: this.setup, stair };
       this.scene.start('Throw', data);
     });
   }
@@ -375,7 +380,6 @@ export class StairScene extends Phaser.Scene {
       success: false,
       failReason: 'stairs_timeout',
       lastMiss: null,
-      sort: this.sort,
       stair: this.stairResult(false),
       throwDistanceM: null,
       perfect: false,

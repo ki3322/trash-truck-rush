@@ -8,11 +8,6 @@ export const GAME_CONFIG = {
   height: 1280,
   countdownSec: 3,
 
-  // ── Sorting (before the stairs) ──────────────────────────
-  sortMistakePenaltyMs: 1500,
-  perfectSortBonus: 200,
-  sortSwipeMinPx: 70,
-
   // ── Stairs ───────────────────────────────────────────────
   stepsPerFlight: 8,
   landingUnits: 3,

@@ -21,7 +21,6 @@ export function outcome(overrides: Partial<RunOutcome> = {}, stair: Partial<Stai
     attemptsUsed: 2,
     remainingSec: 10,
     bounces: 0,
-    sort: { items: 6, mistakes: 0, timeSec: 5 },
     ...overrides,
     stair: { ...baseStair, ...stair },
   };
