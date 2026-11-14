@@ -25,6 +25,7 @@ export class MenuScene extends Phaser.Scene {
   private truck!: GarbageTruck;
   private diffButtons: Partial<Record<Difficulty, Button>> = {};
   private challengePanel: Phaser.GameObjects.Container | null = null;
+  private diffInfo!: Phaser.GameObjects.Text;
 
   constructor() {
     super('Menu');
@@ -78,7 +79,7 @@ export class MenuScene extends Phaser.Scene {
     const { width: W } = GAME_CONFIG;
     new Button(this, W / 2, bottomY(920), { width: 440, height: 110, label: '開始倒垃圾', fontSize: 46, fill: COLORS.orange, onClick: () => this.startGame() });
 
-    this.add.text(W / 2, bottomY(1000), '難度', { ...TEXT.small, fontSize: '22px', color: '#ffffff' }).setOrigin(0.5).setStroke('#2d1b00', 5);
+    this.diffInfo = this.add.text(W / 2, bottomY(996), '', { ...TEXT.small, fontSize: '22px', color: '#ffffff' }).setOrigin(0.5).setStroke('#2d1b00', 5);
     DIFFICULTIES.forEach((d, i) => {
       const b = new Button(this, W / 2 + (i - 1) * 200, bottomY(1050), {
         width: 180, height: 70, label: DIFFICULTY_CONFIG[d].label, fontSize: 30,
@@ -130,6 +131,9 @@ export class MenuScene extends Phaser.Scene {
   private refreshDifficulty(): void {
     const current = getDifficulty();
     DIFFICULTIES.forEach((d) => this.diffButtons[d]?.setFill(d === current ? COLORS.yellow : 0xd8d0bd));
+    const best = getSave().best[current].bestScore;
+    const bestLabel = best > 0 ? `　🏆 ${best.toLocaleString('zh-TW')}` : '';
+    this.diffInfo.setText(`${DIFFICULTY_CONFIG[current].description}${bestLabel}`);
   }
 
   private showRecords(): void {
@@ -171,7 +175,7 @@ export class MenuScene extends Phaser.Scene {
       width: 180, height: 74, label: '自己玩', fontSize: 28, fill: COLORS.white,
       onClick: () => {
         setPendingChallenge(null);
-        panel.destroy();
+        this.challengePanel?.destroy();
         this.challengePanel = null;
         this.refreshDifficulty();
       },
@@ -200,6 +204,5 @@ export class MenuScene extends Phaser.Scene {
     this.truck.x += (delta / 1000) * 40;
     if (this.truck.x > GAME_CONFIG.width + 40) this.truck.x = 300;
     this.truck.tick(delta, 40);
-    if (this.challengePanel) this.challengePanel.setVisible(true);
   }
 }

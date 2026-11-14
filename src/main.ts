@@ -7,6 +7,7 @@ import { MenuScene } from './scenes/MenuScene';
 import { IntroScene } from './scenes/IntroScene';
 import { StairScene } from './scenes/StairScene';
 import { ThrowScene } from './scenes/ThrowScene';
+import { ThrowHudScene } from './scenes/ThrowHudScene';
 import { ResultScene } from './scenes/ResultScene';
 import { initAnalytics, track } from './systems/AnalyticsSystem';
 import { audio } from './systems/AudioSystem';
@@ -42,7 +43,7 @@ const game = new Phaser.Game({
   },
   input: { activePointers: 3 },
   render: { antialias: true, roundPixels: false },
-  scene: [BootScene, MenuScene, IntroScene, StairScene, ThrowScene, ResultScene],
+  scene: [BootScene, MenuScene, IntroScene, StairScene, ThrowScene, ThrowHudScene, ResultScene],
 });
 
 // Expose for automated playtesting in development only.

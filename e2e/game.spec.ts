@@ -242,45 +242,89 @@ test('holding 追 chases the truck, drains stamina and stays behind the truck', 
   expect(o.success).toBe(true);
 });
 
-test('two thumbs: hold 追 with the left, slingshot-aim and throw with the right', async ({ page, context }) => {
+/** HUD coordinates are canvas coordinates; convert them to page pixels. */
+async function hudToPage(page: Page, x: number, fromBottom: number | null, y = 0): Promise<[number, number]> {
+  return page.evaluate(([gx, bottom, gy]) => {
+    const g = (window as unknown as W).__game;
+    const r = g.canvas.getBoundingClientRect();
+    const k = r.width / 720;
+    const yy = bottom === null ? (gy as number) : g.scale.height - (bottom as number);
+    return [r.left + (gx as number) * k, r.top + yy * k] as [number, number];
+  }, [x, fromBottom, y]);
+}
+
+const touchPoint = (id: number, x: number, y: number) => ({ x, y, id, radiusX: 8, radiusY: 8, force: 1 });
+
+test('two thumbs: hold 追 with the left, pull the slingshot back and release with the right', async ({ page, context }) => {
   await startRun(page, 'normal');
   await runStairs(page);
   await waitForScene(page, 'Throw');
   await page.waitForTimeout(2600); // let the truck pull away so there is room to run
-  // Bottom-anchored controls: world y = design y + half, camera shifts another half.
-  const toPage = (gx: number, gy: number) =>
-    page.evaluate(([x, y]) => {
-      const g = (window as unknown as W).__game;
-      const r = g.canvas.getBoundingClientRect();
-      const k = r.width / 720;
-      const half = (g.scale.height - 1280) / 2;
-      return [r.left + x * k, r.top + (y + 2 * half) * k];
-    }, [gx, gy]);
-  const [rx, ry] = await toPage(720 * 0.26, 1198);
-  const [tx, ty] = await toPage(720 * 0.74, 1198);
+  const [rx, ry] = await hudToPage(page, 136, 110);
+  const [sx, sy] = await hudToPage(page, 500, null, 600);
+  const [ex, ey] = await hudToPage(page, 380, null, 720);
   const cdp = await context.newCDPSession(page);
-  const tp = (id: number, x: number, y: number) => ({ x, y, id, radiusX: 8, radiusY: 8, force: 1 });
   const x0 = await page.evaluate(() => (window as unknown as W).__game.scene.getScene('Throw').chase.x);
 
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [tp(1, rx, ry)] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [touchPoint(1, rx, ry)] });
   await page.waitForTimeout(300);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [tp(1, rx, ry), tp(2, tx, ty)] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [touchPoint(1, rx, ry), touchPoint(2, sx, sy)] });
   for (let i = 1; i <= 6; i++) {
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [tp(1, rx, ry), tp(2, tx, ty - i * 8)] });
+    const t = i / 6;
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [touchPoint(1, rx, ry), touchPoint(2, sx + (ex - sx) * t, sy + (ey - sy) * t)],
+    });
     await page.waitForTimeout(50);
   }
   const mid = await page.evaluate(() => {
     const s = (window as unknown as W).__game.scene.getScene('Throw');
-    return { x: s.chase.x, angle: s.angleDeg, charging: s.charging };
+    return { x: s.chase.x, angle: s.angleDeg, charging: s.charging, ratio: s.chargeRatio };
   });
   expect(mid.x).toBeGreaterThan(x0 + 20); // left thumb is running
-  expect(mid.angle).toBeGreaterThan(45); // right thumb slid up → higher angle
+  expect(mid.angle).toBeCloseTo(45, 0); // pulled back and down equally → 45° up
+  expect(mid.ratio).toBeGreaterThan(0.4);
   expect(mid.charging).toBe(true);
 
-  // Lift only the right thumb (it has slid off the button) → the bag is thrown.
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [tp(2, tx, ty - 48)] });
+  // Lift only the right thumb → the bag is thrown while the left keeps running.
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [touchPoint(2, ex, ey)] });
   await page.waitForTimeout(100);
   const after = await page.evaluate(() => (window as unknown as W).__game.scene.getScene('Throw').attempts);
   expect(after).toBe(1);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [tp(1, rx, ry)] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [touchPoint(1, rx, ry)] });
+});
+
+test('a tap without pulling back does not waste a bag', async ({ page, context }) => {
+  await startRun(page, 'normal');
+  await runStairs(page);
+  await waitForScene(page, 'Throw');
+  await page.waitForTimeout(600);
+  const [sx, sy] = await hudToPage(page, 500, null, 600);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [touchPoint(1, sx, sy)] });
+  await page.waitForTimeout(150);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [touchPoint(1, sx, sy)] });
+  await page.waitForTimeout(150);
+  const s = await page.evaluate(() => {
+    const t = (window as unknown as W).__game.scene.getScene('Throw');
+    return { attempts: t.attempts, charging: t.charging };
+  });
+  expect(s).toEqual({ attempts: 0, charging: false });
+});
+
+test('the street scrolls with the chase, and standing still lets the truck get away', async ({ page }) => {
+  await startRun(page, 'hell');
+  await runStairs(page);
+  await waitForScene(page, 'Throw');
+  await page.waitForTimeout(3200);
+  await page.keyboard.down('KeyD');
+  await page.waitForTimeout(1600);
+  await page.keyboard.up('KeyD');
+  const scrollX = await page.evaluate(() => (window as unknown as W).__game.scene.getScene('Throw').cameras.main.scrollX);
+  expect(scrollX).toBeGreaterThan(40);
+  await waitForScene(page, 'Result', 30_000);
+  const o = await page.evaluate(() => (window as unknown as W).__game.scene.getScene('Result').outcome);
+  expect(o.failReason).toBe('truck_left');
+  const hudStillRunning = await page.evaluate(() => (window as unknown as W).__game.scene.getScene('ThrowHud').sys.isActive());
+  expect(hudStillRunning).toBe(false);
 });

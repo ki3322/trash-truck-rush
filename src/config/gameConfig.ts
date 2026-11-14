@@ -43,7 +43,6 @@ export const GAME_CONFIG = {
   releaseOffsetY: -92,
   truckIdleMs: 1200,
   truckAccelMs: 1500,
-  truckLeaveX: 712,
   reloadMs: 650,
   slowMoMs: 500,
   slowMoScale: 0.25,
@@ -57,11 +56,17 @@ export const GAME_CONFIG = {
   staminaDrainPerSec: 40,
   staminaRegenPerSec: 25,
   staminaMinToRun: 20,
-  chaseMaxX: 600,
+  /** Scrolling street the chase plays out on (world px). */
+  streetLengthPx: 2880,
+  /** Truck further ahead than this has got away (px). */
+  maxChaseGapPx: 640,
+  /** Screen x the runner is kept at while the camera follows. */
+  cameraLeadPx: 130,
   /** Closest the runner may get to the truck's rear (px). */
   chaseGapPx: 70,
-  /** Slingshot aiming: degrees per pixel of vertical thumb drag on the throw button. */
-  slingshotDegPerPx: 0.3,
+  /** Pull-back slingshot: drags shorter than the dead zone cancel, maxPull is full power (design px). */
+  slingDeadZonePx: 28,
+  slingMaxPullPx: 250,
 
   // Bounces: the bag rebounds off the truck and the ground and can still drop in.
   truckRestitution: 0.55,
@@ -103,6 +108,9 @@ export const GAME_CONFIG = {
     { minM: 3, points: 300 },
     { minM: 0, points: 100 },
   ],
+
+  /** Minimum score for 2 and 3 stars on a successful run (1 star = any success). */
+  starThresholds: [1200, 2000],
 
   // ── Titles ───────────────────────────────────────────────
   longShotM: 7,

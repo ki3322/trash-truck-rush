@@ -51,11 +51,12 @@ export function centerView(scene: Phaser.Scene): void {
 }
 
 /** Paint the extra strips above/below the design area so no background gap shows. */
-export function fillViewExtents(scene: Phaser.Scene, topColor: number, bottomColor: number): void {
-  if (VIEW.half <= 0) return;
+export function fillViewExtents(scene: Phaser.Scene, topColor: number, bottomColor: number): Phaser.GameObjects.Graphics | null {
+  if (VIEW.half <= 0) return null;
   const g = scene.add.graphics().setDepth(-100);
   g.fillStyle(topColor, 1);
   g.fillRect(0, -VIEW.half, VIEW.width, VIEW.half + 1);
   g.fillStyle(bottomColor, 1);
   g.fillRect(0, DESIGN_HEIGHT - 1, VIEW.width, VIEW.half + 1);
+  return g;
 }

@@ -4,7 +4,7 @@ import { drawPottedPlant, drawScooter } from './Props';
 
 /** Reusable backdrops drawn with Graphics (Taiwanese street + old apartment). */
 
-export function drawSky(scene: Phaser.Scene, w: number, h: number, top = 0x8fd3ff, bottom = 0xfff1c1): void {
+export function drawSky(scene: Phaser.Scene, w: number, h: number, top = 0x8fd3ff, bottom = 0xfff1c1): Phaser.GameObjects.Graphics {
   const g = scene.add.graphics();
   g.fillGradientStyle(top, top, bottom, bottom, 1);
   g.fillRect(0, 0, w, h);
@@ -13,6 +13,7 @@ export function drawSky(scene: Phaser.Scene, w: number, h: number, top = 0x8fd3f
     g.fillEllipse(x, y, 140 * s, 46 * s);
     g.fillEllipse(x + 40 * s, y - 16 * s, 90 * s, 46 * s);
   });
+  return g;
 }
 
 export function drawTiledWall(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, base: number, line: number, tile = 22): void {
@@ -76,14 +77,14 @@ export function drawApartmentFacade(scene: Phaser.Scene, x: number, groundY: num
     .setOrigin(0.5, 0);
 }
 
-/** Street-side shop row with arcade (騎樓), signs, poles, scooters. */
-export function drawStreet(scene: Phaser.Scene, w: number, groundY: number): void {
+/** Street-side shop row with arcade (騎樓), signs, poles, scooters. `ox` shifts the block so it can be tiled. */
+export function drawStreet(scene: Phaser.Scene, w: number, groundY: number, ox = 0): void {
   const g = scene.add.graphics();
   // Back buildings
   const shops = [
-    { x: 0, w: 250, h: 520, color: 0xe7d3a8, sign: '早餐店', signColor: 0xe63946 },
-    { x: 250, w: 230, h: 600, color: 0xc9d6df, sign: '巷口超商', signColor: 0x2a9d8f },
-    { x: 480, w: 240, h: 480, color: 0xf2c6b4, sign: '機車行', signColor: 0x3d7ae0 },
+    { x: ox, w: 250, h: 520, color: 0xe7d3a8, sign: '早餐店', signColor: 0xe63946 },
+    { x: ox + 250, w: 230, h: 600, color: 0xc9d6df, sign: '巷口超商', signColor: 0x2a9d8f },
+    { x: ox + 480, w: 240, h: 480, color: 0xf2c6b4, sign: '機車行', signColor: 0x3d7ae0 },
   ];
   shops.forEach((s) => {
     const top = groundY - s.h;
@@ -113,45 +114,45 @@ export function drawStreet(scene: Phaser.Scene, w: number, groundY: number): voi
   });
   // Vertical sign
   g.fillStyle(COLORS.ink, 1);
-  g.fillRect(452, groundY - 470, 50, 190);
+  g.fillRect(ox + 452, groundY - 470, 50, 190);
   g.fillStyle(0xffd166, 1);
-  g.fillRect(456, groundY - 466, 42, 182);
+  g.fillRect(ox + 456, groundY - 466, 42, 182);
   scene.add
-    .text(477, groundY - 375, '牛\n肉\n麵', { fontFamily: FONT_FAMILY, fontSize: '34px', fontStyle: '900', color: '#c1121f', align: 'center', lineSpacing: 6 })
+    .text(ox + 477, groundY - 375, '牛\n肉\n麵', { fontFamily: FONT_FAMILY, fontSize: '34px', fontStyle: '900', color: '#c1121f', align: 'center', lineSpacing: 6 })
     .setOrigin(0.5);
 
   // Utility pole and wires
   g.fillStyle(0x7f8c8d, 1);
-  g.fillRect(640, groundY - 640, 18, 640);
+  g.fillRect(ox + 640, groundY - 640, 18, 640);
   g.fillStyle(COLORS.ink, 1);
-  g.fillRect(610, groundY - 610, 80, 8);
+  g.fillRect(ox + 610, groundY - 610, 80, 8);
   g.lineStyle(3, COLORS.ink, 0.8);
   g.beginPath();
-  g.moveTo(0, groundY - 560);
-  g.lineTo(649, groundY - 606);
-  g.moveTo(0, groundY - 520);
-  g.lineTo(649, groundY - 590);
+  g.moveTo(ox, groundY - 560);
+  g.lineTo(ox + 649, groundY - 606);
+  g.moveTo(ox, groundY - 520);
+  g.lineTo(ox + 649, groundY - 590);
   g.strokePath();
   // Street lamp
   g.fillStyle(0x546e7a, 1);
-  g.fillRect(24, groundY - 420, 10, 420);
-  g.fillRect(24, groundY - 420, 60, 8);
+  g.fillRect(ox + 24, groundY - 420, 10, 420);
+  g.fillRect(ox + 24, groundY - 420, 60, 8);
   g.fillStyle(0xfff59d, 1);
-  g.fillEllipse(84, groundY - 406, 34, 16);
+  g.fillEllipse(ox + 84, groundY - 406, 34, 16);
 
   // Sidewalk + road
   g.fillStyle(0xbdbdbd, 1);
-  g.fillRect(0, groundY, w, 24);
+  g.fillRect(ox, groundY, w, 24);
   g.fillStyle(0x8e8e8e, 1);
-  g.fillRect(0, groundY + 24, w, 8);
+  g.fillRect(ox, groundY + 24, w, 8);
   g.fillStyle(0x4a4a4a, 1);
-  g.fillRect(0, groundY + 32, w, 120);
+  g.fillRect(ox, groundY + 32, w, 120);
   g.fillStyle(0xffffff, 1);
-  for (let x = 20; x < w; x += 120) g.fillRect(x, groundY + 90, 60, 8);
+  for (let x = 20; x < w; x += 120) g.fillRect(ox + x, groundY + 90, 60, 8);
   g.fillStyle(0xf4d03f, 1);
-  g.fillRect(0, groundY + 36, w, 5);
+  g.fillRect(ox, groundY + 36, w, 5);
 
-  drawScooter(g, 200, groundY, 0xe63946);
-  drawScooter(g, 318, groundY, 0x3d7ae0);
-  drawPottedPlant(g, 560, groundY);
+  drawScooter(g, ox + 200, groundY, 0xe63946);
+  drawScooter(g, ox + 318, groundY, 0x3d7ae0);
+  drawPottedPlant(g, ox + 560, groundY);
 }

@@ -44,3 +44,9 @@ export function computeScore(o: RunOutcome): ScoreBreakdown {
 
   return { total: lines.reduce((sum, l) => sum + l.points, 0), lines };
 }
+
+/** 0 for a failed run; 1–3 for a success depending on the score. */
+export function starsFor(success: boolean, total: number): number {
+  if (!success) return 0;
+  return 1 + GAME_CONFIG.starThresholds.filter((t) => total >= t).length;
+}

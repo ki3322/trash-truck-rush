@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GAME_CONFIG } from '../src/config/gameConfig';
-import { computeScore, distanceBasePoints, isFlawlessDescent } from '../src/systems/ScoreSystem';
+import { computeScore, distanceBasePoints, isFlawlessDescent, starsFor } from '../src/systems/ScoreSystem';
 import { getTitle, ALL_TITLES } from '../src/systems/TitleSystem';
 import { failLine, successLine, toChineseFloor } from '../src/config/texts';
 import { createRng } from '../src/utils/rng';
@@ -75,5 +75,18 @@ describe('copy', () => {
     }
     expect(successLine(createRng(1)).length).toBeGreaterThan(0);
     expect(toChineseFloor(42)).toBe('42');
+  });
+});
+
+describe('star rating', () => {
+  it('gives no stars for a failed run, whatever the score', () => {
+    expect(starsFor(false, 5000)).toBe(0);
+  });
+  it('gives 1–3 stars for a success by score threshold', () => {
+    const [two, three] = GAME_CONFIG.starThresholds;
+    expect(starsFor(true, 0)).toBe(1);
+    expect(starsFor(true, two - 1)).toBe(1);
+    expect(starsFor(true, two)).toBe(2);
+    expect(starsFor(true, three)).toBe(3);
   });
 });

@@ -9,7 +9,7 @@ import { buildChallengeUrl } from '../systems/ChallengeSystem';
 import { gameFlow } from '../systems/GameFlow';
 import { canvasToBlob, renderShareCanvas } from '../systems/ShareImage';
 import { buildShareText, copyText, downloadBlob, formatSeconds, shareToThreads, type ShareSummary } from '../systems/ShareSystem';
-import { computeScore } from '../systems/ScoreSystem';
+import { computeScore, starsFor, type ScoreBreakdown } from '../systems/ScoreSystem';
 import { applyOutcome } from '../systems/StorageSystem';
 import { getTitle } from '../systems/TitleSystem';
 import { gameBaseUrl, getSave, updateSave } from '../state';
@@ -20,6 +20,10 @@ import { bottomY, centerView, fillViewExtents, topY } from '../ui/view';
 import { toast } from '../ui/Overlay';
 import { COLORS, FONT_FAMILY, TEXT } from '../ui/theme';
 import { randomSeed } from '../utils/rng';
+
+const MAX_STARS = 3;
+/** Score card geometry (design px). */
+const CARD = { top: 452, height: 408, rowHeight: 32, rowHeightTight: 30 } as const;
 
 export class ResultScene extends Phaser.Scene {
   private outcome!: RunOutcome;
@@ -71,74 +75,96 @@ export class ResultScene extends Phaser.Scene {
       : `${FAIL_REASON_TEXT[o.failReason ?? 'throw_timeout']}${o.lastMiss && o.failReason === 'out_of_bags' ? `（${MISS_TEXT[o.lastMiss]}）` : ''}`;
     this.add.text(W / 2, topY(150), sub, { ...TEXT.body, fontSize: '28px', fontStyle: '800' }).setOrigin(0.5);
 
-    this.player = new Player(this, 120, 420, 1.3).setPose(o.success ? 'cheer' : 'cry');
+    this.drawStars(starsFor(o.success, score.total));
+    this.player = new Player(this, 112, 430, 1.25).setPose(o.success ? 'cheer' : 'cry');
 
     const titleColor = o.success ? '#e85d04' : '#3d5a80';
-    this.add.text(430, 250, `${title.emoji} ${title.name}`, { ...TEXT.h2, fontSize: '42px', color: titleColor, align: 'center', wordWrap: { width: 480, useAdvancedWrap: true } }).setOrigin(0.5);
-    this.add.text(430, 305, title.description, { ...TEXT.small, fontSize: '22px' }).setOrigin(0.5);
+    this.add.text(430, 290, `${title.emoji} ${title.name}`, { ...TEXT.h2, fontSize: '42px', color: titleColor, align: 'center', wordWrap: { width: 480, useAdvancedWrap: true } }).setOrigin(0.5);
+    this.add.text(430, 336, title.description, { ...TEXT.small, fontSize: '22px' }).setOrigin(0.5);
     this.add
-      .text(430, 370, `「${line}」`, { fontFamily: FONT_FAMILY, fontSize: '28px', fontStyle: '900', color: '#c1121f', align: 'center', wordWrap: { width: 460, useAdvancedWrap: true } })
+      .text(430, 392, `「${line}」`, { fontFamily: FONT_FAMILY, fontSize: '26px', fontStyle: '900', color: '#c1121f', align: 'center', wordWrap: { width: 460, useAdvancedWrap: true } })
       .setOrigin(0.5);
 
-    this.drawCard(score.total, score.lines.map((l) => `${l.label} +${l.points}`).join('・'), score.total > prevBest);
+    this.drawCard(score, score.total > prevBest);
     this.buildButtons();
     if (o.success) audio.play('success');
   }
 
-  private drawCard(total: number, breakdown: string, newRecord: boolean): void {
+  /** Three stars under the headline; earned ones pop in one after another. */
+  private drawStars(earned: number): void {
+    const { width: W } = GAME_CONFIG;
+    for (let i = 0; i < MAX_STARS; i++) {
+      const on = i < earned;
+      const star = this.add
+        .text(W / 2 + (i - 1) * 84, topY(214), '★', { fontFamily: FONT_FAMILY, fontSize: '72px', color: on ? '#ffc400' : '#00000030', stroke: on ? '#2d1b00' : '#00000000', strokeThickness: on ? 8 : 0 })
+        .setOrigin(0.5);
+      if (!on) continue;
+      star.setScale(0);
+      this.tweens.add({ targets: star, scale: 1, delay: 300 + i * 260, duration: 320, ease: 'Back.easeOut', onStart: () => audio.play('count') });
+    }
+  }
+
+  private drawCard(score: ScoreBreakdown, newRecord: boolean): void {
     const o = this.outcome;
     const { width: W } = GAME_CONFIG;
-    const top = 440;
+    const top = CARD.top;
     const g = this.add.graphics();
     g.fillStyle(COLORS.ink, 1);
-    g.fillRoundedRect(40, top + 8, W - 80, 400, 26);
+    g.fillRoundedRect(40, top + 8, W - 80, CARD.height, 26);
     g.fillStyle(0xffffff, 0.95);
-    g.fillRoundedRect(40, top, W - 80, 400, 26);
+    g.fillRoundedRect(40, top, W - 80, CARD.height, 26);
     g.lineStyle(5, COLORS.ink, 1);
-    g.strokeRoundedRect(40, top, W - 80, 400, 26);
+    g.strokeRoundedRect(40, top, W - 80, CARD.height, 26);
 
     const start = DIFFICULTY_CONFIG[o.setup.difficulty].startFloor;
-    const rows: [string, string][] = [
-      ['完成樓層', o.stair.reachedGround ? `${start}F → 1F ✅` : `${start}F → ${o.stair.floorReached}F`],
-      ['下樓時間', o.stair.reachedGround ? formatSeconds(o.stair.stairTimeSec) : '沒下到一樓'],
-      ['投擲距離', o.success && o.throwDistanceM !== null ? `${o.throwDistanceM.toFixed(1)} 公尺` : '—'],
+    const stats = [
+      o.stair.reachedGround ? `${start}F → 1F ✅` : `${start}F → ${o.stair.floorReached}F`,
+      o.stair.reachedGround ? `下樓 ${formatSeconds(o.stair.stairTimeSec)}` : '沒下到一樓',
+      ...(o.success && o.throwDistanceM !== null ? [`投擲 ${o.throwDistanceM.toFixed(1)} 公尺`] : []),
     ];
-    rows.forEach(([k, v], i) => {
-      const y = top + 30 + i * 46;
-      this.add.text(80, y, k, { ...TEXT.body, color: '#6b5a3a' });
-      this.add.text(W - 80, y, v, { ...TEXT.body, fontStyle: '900' }).setOrigin(1, 0);
+    this.add.text(W / 2, top + 22, stats.join('・'), { ...TEXT.small, fontSize: '24px', fontStyle: '800', color: '#6b5a3a' }).setOrigin(0.5, 0);
+
+    const ch = o.setup.challenge;
+    if (ch) {
+      const beat = score.total > ch.targetScore;
+      const target = ch.targetScore.toLocaleString('zh-TW');
+      this.add
+        .text(W / 2, top + 58, beat ? `🏅 挑戰成功！贏過朋友的 ${target} 分` : `挑戰失敗…朋友 ${target} 分`, {
+          fontFamily: FONT_FAMILY, fontSize: '24px', fontStyle: '900', color: beat ? '#2a9d8f' : '#c1121f',
+        })
+        .setOrigin(0.5, 0);
+    }
+
+    // One row per score line, so it is clear where the points came from.
+    const rowsTop = top + (ch ? 98 : 70);
+    score.lines.forEach((l, i) => {
+      const y = rowsTop + i * (ch ? CARD.rowHeightTight : CARD.rowHeight);
+      this.add.text(80, y, l.label, { ...TEXT.small, fontSize: '24px', fontStyle: '700' });
+      this.add.text(W - 80, y, `+${l.points.toLocaleString('zh-TW')}`, { ...TEXT.small, fontSize: '24px', fontStyle: '900', color: '#e85d04' }).setOrigin(1, 0);
     });
-    this.add.text(80, top + 228, '最終得分', { ...TEXT.body, color: '#6b5a3a' });
+    if (score.lines.length === 0) this.add.text(W / 2, rowsTop + 20, '這次沒有拿到分數…', { ...TEXT.small, fontSize: '24px', color: '#6b5a3a' }).setOrigin(0.5, 0);
+
+    const totalY = top + CARD.height - 92;
+    g.lineStyle(3, COLORS.ink, 0.25);
+    g.lineBetween(76, totalY - 6, W - 76, totalY - 6);
+    this.add.text(80, totalY + 24, '最終得分', { ...TEXT.body, color: '#6b5a3a' });
     const scoreText = this.add
-      .text(W - 80, top + 210, '0', { ...TEXT.title, fontSize: '68px', color: '#e85d04', strokeThickness: 8 })
+      .text(W - 80, totalY, '0', { ...TEXT.title, fontSize: '68px', color: '#e85d04', strokeThickness: 8 })
       .setOrigin(1, 0);
     this.tweens.addCounter({
       from: 0,
-      to: total,
+      to: score.total,
       duration: 900,
       ease: 'Cubic.easeOut',
       onUpdate: (tw) => scoreText.setText(Math.round(tw.getValue() ?? 0).toLocaleString('zh-TW')),
     });
-    this.add.text(W / 2, top + 302, breakdown || '—', {
-      fontFamily: FONT_FAMILY, fontSize: '20px', fontStyle: '700', color: '#6b5a3a', align: 'center', wordWrap: { width: W - 140, useAdvancedWrap: true },
-    }).setOrigin(0.5, 0);
 
-    if (newRecord && total > 0) {
+    if (newRecord && score.total > 0) {
       const badge = this.add
         .text(W - 110, top - 10, '新紀錄！', { fontFamily: FONT_FAMILY, fontSize: '26px', fontStyle: '900', color: '#ffffff', backgroundColor: '#e63946', padding: { x: 12, y: 6 } })
         .setOrigin(0.5)
         .setAngle(8);
       this.tweens.add({ targets: badge, scale: 1.12, yoyo: true, repeat: -1, duration: 400 });
-    }
-
-    const ch = o.setup.challenge;
-    if (ch) {
-      const beat = total > ch.targetScore;
-      this.add
-        .text(W / 2, top + 362, beat ? `🏅 挑戰成功！贏過朋友的 ${ch.targetScore.toLocaleString('zh-TW')} 分` : `挑戰失敗…朋友 ${ch.targetScore.toLocaleString('zh-TW')} 分`, {
-          fontFamily: FONT_FAMILY, fontSize: '24px', fontStyle: '900', color: beat ? '#2a9d8f' : '#c1121f',
-        })
-        .setOrigin(0.5);
     }
   }
 

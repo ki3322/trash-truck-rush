@@ -26,12 +26,14 @@ export interface ThrowSceneData {
 }
 
 const ACTION_SPAM_LOCK_MS = 400;
+/** Combo is only worth showing once the runner is in rhythm. */
+const COMBO_SHOW_FROM = 3;
 
 interface ActiveEvent {
   readonly sched: ScheduledEvent;
   readonly startedAt: number;
   readonly windowMs: number;
-  stillMs: number;
+  readonly stillMs: number;
 }
 
 export class StairScene extends Phaser.Scene {
@@ -59,7 +61,7 @@ export class StairScene extends Phaser.Scene {
   private presenter!: StairEventPresenter;
   private timeText!: Phaser.GameObjects.Text;
   private floorText!: Phaser.GameObjects.Text;
-  private scoreText!: Phaser.GameObjects.Text;
+  private comboText!: Phaser.GameObjects.Text;
   private truckText!: Phaser.GameObjects.Text;
   private truckBar!: Phaser.GameObjects.Graphics;
   private leftBtn!: Button;
@@ -119,19 +121,20 @@ export class StairScene extends Phaser.Scene {
     g.fillRoundedRect(12, 12, W - 24, 132, 22);
     this.timeText = this.add.text(36, 30, '', { ...TEXT.hud, fontSize: '40px' }).setScrollFactor(0).setDepth(101);
     this.floorText = this.add.text(W / 2, 30, '', { ...TEXT.hud, fontSize: '40px', color: '#ffe066' }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
-    this.scoreText = this.add.text(W - 36, 30, '', { ...TEXT.hud, fontSize: '32px' }).setOrigin(1, 0).setScrollFactor(0).setDepth(101);
+    this.comboText = this.add.text(W - 36, 30, '', { ...TEXT.hud, fontSize: '36px', color: '#ffb347' }).setOrigin(1, 0).setScrollFactor(0).setDepth(101);
     this.truckText = this.add.text(36, 90, '', { ...TEXT.hud, fontSize: '24px' }).setScrollFactor(0).setDepth(101);
     this.truckBar = this.add.graphics().setScrollFactor(0).setDepth(101);
 
+    const touch = this.sys.game.device.input.touch;
     const panel = this.add.graphics().setScrollFactor(0).setDepth(100);
     panel.fillStyle(COLORS.ink, 0.55);
     panel.fillRect(0, H - 200, W, 200);
     this.leftBtn = new Button(this, W / 4 + 4, H - 104, {
-      width: W / 2 - 36, height: 160, label: '左腳\n(A)', fontSize: 40, fill: COLORS.yellow, silent: true,
+      width: W / 2 - 36, height: 160, label: touch ? '🦶 左腳' : '左腳\n(A)', fontSize: 40, fill: COLORS.yellow, silent: true,
       onDown: () => this.onFoot('L'),
     });
     this.rightBtn = new Button(this, (W * 3) / 4 - 4, H - 104, {
-      width: W / 2 - 36, height: 160, label: '右腳\n(D)', fontSize: 40, fill: COLORS.yellow, silent: true,
+      width: W / 2 - 36, height: 160, label: touch ? '右腳 🦶' : '右腳\n(D)', fontSize: 40, fill: COLORS.yellow, silent: true,
       onDown: () => this.onFoot('R'),
     });
     [this.leftBtn, this.rightBtn].forEach((b) => b.setScrollFactor(0).setDepth(110));
@@ -186,7 +189,7 @@ export class StairScene extends Phaser.Scene {
     const { state, outcome } = tap(this.runner, foot, this.now, this.total);
     this.runner = state;
     if (this.active?.sched.type === 'bagTear') {
-      this.active.stillMs = 0;
+      this.active = { ...this.active, stillMs: 0 };
       audio.play('rustle');
       this.presenter.shakeBag();
     }
@@ -250,11 +253,11 @@ export class StairScene extends Phaser.Scene {
   private updateEvents(delta: number): void {
     const next = this.schedule[this.nextEvent];
     if (!this.active && next && this.displayP >= next.atUnit) this.activateEvent(next);
+    if (!this.active) return;
+    if (this.active.sched.type === 'bagTear') this.active = { ...this.active, stillMs: this.active.stillMs + delta };
     const a = this.active;
-    if (!a) return;
     const elapsed = this.now - a.startedAt;
     if (a.sched.type === 'bagTear') {
-      a.stillMs += delta;
       this.presenter.updateMeter(Math.min(1, a.stillMs / GAME_CONFIG.bagTearStillMs), 1 - elapsed / a.windowMs);
       if (a.stillMs >= GAME_CONFIG.bagTearStillMs) {
         this.resolveEvent(true);
@@ -324,9 +327,8 @@ export class StairScene extends Phaser.Scene {
     const ratio = rem / this.clock.totalMs;
     this.timeText.setText(`⏱ ${(rem / 1000).toFixed(1)}`).setColor(rem < 10000 ? '#ff6b6b' : '#ffffff');
     this.floorText.setText(`${floorAt(this.cfg.startFloor, this.displayP)}F → 1F`);
-    const floorsDown = this.cfg.startFloor - floorAt(this.cfg.startFloor, this.displayP);
-    const bonus = this.succeededEvents.includes('momBag') ? GAME_CONFIG.momBagBonus : 0;
-    this.scoreText.setText(`分數 ${floorsDown * GAME_CONFIG.failFloorPoints + bonus}`);
+    const combo = this.now - this.runner.lastTapAt > GAME_CONFIG.comboResetMs ? 0 : this.runner.combo;
+    this.comboText.setText(combo >= COMBO_SHOW_FROM ? `🔥 連踏 ${combo}` : '');
     const status = ratio > 0.6 ? '🚛 垃圾車：停在巷口' : ratio > 0.3 ? '🚛 垃圾車：準備開走！' : '🚛 垃圾車：快走了！！';
     this.truckText.setText(status);
     const bx = 380;
